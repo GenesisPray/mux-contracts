@@ -64,6 +64,14 @@ We will not pursue legal action against researchers who follow these guidelines.
 
 See [docs/threat-model.md](docs/threat-model.md) for the current threat model, trust boundaries, and known mitigations.
 
+## Account Abstraction (AA)
+
+The AA roadmap invariants, authorization model (owner/delegate/guardian/API-key/JWT),
+stable error codes, idempotency, and fail-closed requirements are defined in
+[docs/aa-milestone-roadmap.md](docs/aa-milestone-roadmap.md). That document is the
+authoritative exit-criteria reference for AA work; report AA-related issues against
+its invariants.
+
 ## Audit History
 
 See [docs/audit-prep.md](docs/audit-prep.md) for audit preparation notes and the [docs/access-control-checklist.md](docs/access-control-checklist.md) for the access control review checklist.
