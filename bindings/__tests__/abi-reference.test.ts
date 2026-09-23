@@ -1,6 +1,6 @@
 /**
  * Verifies that docs/abi_reference.md documents the mux-account-factory
- * public interface (#221).
+ * public interface (#221) and the max ops constant (#870).
  */
 
 import * as fs from "fs";
@@ -51,5 +51,19 @@ describe("docs/abi_reference.md — mux-account-factory", () => {
 
   it("documents MAX_ACCOUNTS_PER_OWNER cap", () => {
     expect(content).toContain("MAX_ACCOUNTS_PER_OWNER");
+  });
+});
+
+describe("docs/abi_reference.md — max ops constant (#870)", () => {
+  it("documents the MAX_OPS constant name", () => {
+    expect(content).toContain("MAX_OPS");
+  });
+
+  it("documents the MAX_OPS value", () => {
+    expect(content).toMatch(/MAX_OPS[^\n]*\b100\b/);
+  });
+
+  it("documents MAX_OPS semantics (per-transaction op cap)", () => {
+    expect(content).toMatch(/MAX_OPS[\s\S]{0,400}per[- ]transaction/i);
   });
 });

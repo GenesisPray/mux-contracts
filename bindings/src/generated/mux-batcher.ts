@@ -18,6 +18,16 @@ import {
 import type { BatcherMeta, BatchOperationKind, BatchResult, MuxBatcherError, Operation } from "../types";
 import { pollTransaction } from "../horizon";
 
+/**
+ * Maximum number of operations accepted in a single batch.
+ *
+ * Mirrors the on-chain `MAX_BATCH_SIZE` constant in the `mux-batcher`
+ * contract. `executeBatch` / `submitBatch` reject any batch larger than this
+ * with `MuxBatcherError::BatchTooLarge`, and `estimateFees` throws for
+ * `opCount` of 0 or greater than this value. See `docs/abi_reference.md`.
+ */
+export const MAX_BATCH_SIZE = 100;
+
 export interface MuxBatcherClientOptions {
   contractId: string;
   networkPassphrase: string;
