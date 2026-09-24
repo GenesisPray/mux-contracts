@@ -1,8 +1,8 @@
 # Mainnet Deployment Checklist
 
-Use this checklist before every mainnet deployment. Complete every item in order. Do not skip steps — each exists because a past incident or near-miss made it necessary.
+> **Note:** This document has been consolidated with `MAINNET_DEPLOY_CHECKLIST.md`. Please use **[MAINNET_DEPLOY_CHECKLIST.md](MAINNET_DEPLOY_CHECKLIST.md)** as the canonical pre-deployment checklist.
 
-> **When to use:** Run through this checklist for every first-time deployment and every upgrade that changes on-chain state or contract addresses.
+This checklist is maintained for reference and backward compatibility. The consolidated `MAINNET_DEPLOY_CHECKLIST.md` contains all items from both documents with complete phase-based organization, sign-off requirements, and fillable fields for audit references and contract IDs.
 
 ---
 

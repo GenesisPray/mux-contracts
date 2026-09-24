@@ -22,9 +22,11 @@ pub struct DailyLimit {
 
 Storage key: `DataKey::WalletLimit(Address)` — persistent storage, one record per wallet.
 
-The `registry_id` field links this policy record to an external registry contract. It is purely
-informational metadata — the policy contract itself does not call the registry; consumers use the
-field to route cross-contract policy lookups.
+The `registry_id` field links this policy record to an external registry contract. When set,
+`record_spend` performs a live cross-contract call to the registry at that address to confirm it is
+accessible before recording the spend. If the registry contract is unreachable or returns an error,
+`record_spend` returns `RegistryNotFound` (fail-closed). When `registry_id` is `None`, no registry
+call is made and the spend proceeds normally.
 
 ## Day Window
 
@@ -58,6 +60,9 @@ The window expires when `env.ledger().sequence() >= reset_ledger`. At that point
 ### `record_spend(wallet, amount)` — wallet-authorized
 
 - Requires `wallet.require_auth()`.
+- If the wallet's limit record contains a `registry_id`, performs a cross-contract call to the
+  registry contract to confirm it is live. Returns `RegistryNotFound` (fail-closed) if the registry
+  call fails. When `registry_id` is `None`, the validation step is skipped.
 - Auto-resets the counter if the day window has elapsed (persists the reset).
 - Debits `amount` from the remaining allowance.
 - Fails with `LimitExceeded` if `spent + amount > limit`.
@@ -104,6 +109,7 @@ The auto-reset advances `reset_ledger` by exactly `day_ledgers` from the current
 | `InvalidAmount` | 6 | `limit` or `amount` is ≤ 0 |
 | `InvalidPeriod` | 7 | `day_ledgers` is 0 |
 | `TooManyWallets` | 8 | Wallet cap (`MAX_WALLETS = 256`) reached; no new wallet limits can be added |
+| `RegistryNotFound` | 9 | The registry contract linked via `registry_id` is unreachable or invalid; `record_spend` is fail-closed |
 
 ## Events
 

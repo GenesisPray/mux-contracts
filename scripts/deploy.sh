@@ -151,6 +151,7 @@ ALL_CONTRACTS=(
   "mux-batcher"
   "mux-delegation"
   "mux-permissions"
+  "mux-policy"
   "mux-recovery"
   "mux-registry"
   "mux-spending-policy"
@@ -262,7 +263,16 @@ deploy_contract() {
       mux-permissions)
         log_dry "  Init      : stellar contract invoke --id <contract_id> -- initialize --admin \${ADMIN_ADDRESS}"
         ;;
+      mux-policy)
+        log_dry "  Init      : stellar contract invoke --id <contract_id> -- initialize --admin \${ADMIN_ADDRESS}"
+        ;;
+      mux-recovery)
+        log_dry "  Init      : stellar contract invoke --id <contract_id> -- initialize --admin \${ADMIN_ADDRESS}"
+        ;;
       mux-registry)
+        log_dry "  Init      : stellar contract invoke --id <contract_id> -- initialize --admin \${ADMIN_ADDRESS}"
+        ;;
+      mux-spending-policy)
         log_dry "  Init      : stellar contract invoke --id <contract_id> -- initialize --admin \${ADMIN_ADDRESS}"
         ;;
       mux-wallet-registry)

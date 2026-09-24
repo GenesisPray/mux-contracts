@@ -31,6 +31,8 @@ export function loadContractAddresses(
   const addresses: MuxContractIds = {
     muxAccount:
       process.env[`${envPrefix}_MUX_ACCOUNT_ID`] || networkConfig.muxAccount,
+    muxAccountFactory:
+      process.env[`${envPrefix}_MUX_ACCOUNT_FACTORY_ID`] || networkConfig.muxAccountFactory || "",
     muxBatcher:
       process.env[`${envPrefix}_MUX_BATCHER_ID`] || networkConfig.muxBatcher,
     muxDelegation:
@@ -38,15 +40,17 @@ export function loadContractAddresses(
     muxPermissions:
       process.env[`${envPrefix}_MUX_PERMISSIONS_ID`] ||
       networkConfig.muxPermissions,
+    muxPolicy:
+      process.env[`${envPrefix}_MUX_POLICY_ID`] || networkConfig.muxPolicy || "",
+    muxRecovery:
+      process.env[`${envPrefix}_MUX_RECOVERY_ID`] || networkConfig.muxRecovery || "",
+    muxRegistry:
+      process.env[`${envPrefix}_MUX_REGISTRY_ID`] || networkConfig.muxRegistry || "",
+    muxSpendingPolicy:
+      process.env[`${envPrefix}_MUX_SPENDING_POLICY_ID`] || networkConfig.muxSpendingPolicy || "",
     muxWalletRegistry:
       process.env[`${envPrefix}_MUX_WALLET_REGISTRY_ID`] ||
       networkConfig.muxWalletRegistry,
-    muxPolicy:
-      process.env[`${envPrefix}_MUX_POLICY_ID`] || networkConfig.muxPolicy || "",
-    muxAccountFactory:
-      process.env[`${envPrefix}_MUX_ACCOUNT_FACTORY_ID`] || networkConfig.muxAccountFactory || "",
-    muxRegistry:
-      process.env[`${envPrefix}_MUX_REGISTRY_ID`] || networkConfig.muxRegistry || "",
   };
 
   return addresses;

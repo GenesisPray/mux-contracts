@@ -21,13 +21,27 @@
 
 import { Address, Keypair, Networks } from "@stellar/stellar-sdk";
 import { MuxAccountFactoryClient } from "@mux-protocol/contracts";
+import * as fs from "fs";
+import * as path from "path";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
 const RPC_URL = process.env.RPC_URL ?? "https://soroban-testnet.stellar.org";
 const SECRET_KEY = process.env.SECRET_KEY!;
-const FACTORY_CONTRACT = process.env.FACTORY_CONTRACT!;
 const NETWORK = process.env.SOROBAN_NETWORK ?? "testnet";
+
+// Load contract addresses from config/addresses.json
+const configPath = path.join(__dirname, "..", "config", "addresses.json");
+const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+const FACTORY_CONTRACT = config[NETWORK]?.muxAccountFactory || process.env.FACTORY_CONTRACT!;
+
+if (!FACTORY_CONTRACT) {
+  console.error(
+    `Factory contract address not found for network "${NETWORK}". ` +
+    `Please set it in config/addresses.json or via FACTORY_CONTRACT env var.`
+  );
+  process.exit(1);
+}
 
 const PASSPHRASE: Record<string, string> = {
   localnet: "Standalone Network ; February 2025",

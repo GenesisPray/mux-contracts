@@ -132,6 +132,10 @@ deployment.env
 deployer.json
 ```
 
+These four patterns are enforced in CI by
+`scripts/check-gitignore-secret-patterns.sh`, which fails the build if any
+of them is ever removed from `.gitignore`.
+
 Verify no secrets are staged:
 
 ```bash
@@ -165,6 +169,11 @@ Once contracts are deployed, rotate the deployer key:
 1. Generate a new keypair (`stellar keys generate deployer-v2`).
 2. Drain remaining XLM back to your treasury account.
 3. Archive the old secret in your secrets manager or revoke CI access.
+4. Record the drain and rotation in
+   [`ops/deployer-key-rotation-log.md`](../ops/deployer-key-rotation-log.md)
+   using the template there — `scripts/check-deployer-key-rotation-log.sh`
+   runs in CI on every PR and fails if an entry is incomplete or the drain
+   confirmation is left unchecked.
 
 ---
 
@@ -172,5 +181,6 @@ Once contracts are deployed, rotate the deployer key:
 
 - [Deploy dry-run flag](../scripts/deploy.sh) — validate deployment config without spending fees
 - [Mainnet deploy checklist](MAINNET_DEPLOY_CHECKLIST.md) — pre-deploy verification steps
+- [ops/deployer-key-rotation-log.md](../ops/deployer-key-rotation-log.md) — drain/rotation completion record
 - [Stellar account documentation](https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts)
 - [Stellar CLI reference](https://developers.stellar.org/docs/tools/stellar-cli)

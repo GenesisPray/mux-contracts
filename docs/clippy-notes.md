@@ -28,10 +28,10 @@ The `priority = -1` on `all` and `pedantic` lets individual lint overrides (adde
 ### Standard check (used in CI)
 
 ```bash
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-features --all-targets -- -D warnings
 ```
 
-This is what `make clippy` runs.  `-D warnings` promotes every lint warning to a hard error so CI fails on any new warning.
+This is what `make clippy` runs.  `-D warnings` promotes every lint warning to a hard error so CI fails on any new warning.  `--all-features` ensures feature-gated code paths are linted; `--all-targets` includes tests, examples, and benchmarks so warnings in those targets do not silently accumulate.
 
 ### Pedantic-only pass (for exploration)
 

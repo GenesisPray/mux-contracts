@@ -125,11 +125,16 @@ For CI/CD (GitHub Actions example):
 
 ## Security checklist
 
-- [ ] Secret key is **not** committed to version control (check: `git log -p | grep -E "^\\+S[A-Z0-9]{55}"`)
-- [ ] `.env` and `*.secret` files are listed in `.gitignore`
+- [ ] Secret key is **not** committed to version control (checked in CI by
+      `scripts/scan-git-secrets.sh`, run in the `scan-secrets` job on every PR)
+- [ ] `.env`, `*.secret`, `deployment.env`, and `deployer.json` are listed in
+      `.gitignore` (checked in CI by `scripts/check-gitignore-secret-patterns.sh`)
 - [ ] Deployer key is **separate** from personal and admin keys
 - [ ] For mainnet: key is stored in a secrets manager or hardware wallet
-- [ ] Deployer key is **drained and rotated** after each mainnet deployment cycle
+- [ ] Deployer key is **drained and rotated** after each mainnet deployment
+      cycle — record the drain/rotation in
+      [`ops/deployer-key-rotation-log.md`](../ops/deployer-key-rotation-log.md)
+      (checked in CI by `scripts/check-deployer-key-rotation-log.sh`)
 
 ### CI/CD key handling
 
@@ -155,3 +160,4 @@ signing path yet. Until that changes:
 - [MAINNET_DEPLOY_CHECKLIST.md](MAINNET_DEPLOY_CHECKLIST.md) — pre-deploy verification steps
 - [scripts/deploy.sh](../scripts/deploy.sh) — deployment script (`--dry-run` supported)
 - [scripts/fund-accounts.sh](../scripts/fund-accounts.sh) — testnet funding helper
+- [ops/deployer-key-rotation-log.md](../ops/deployer-key-rotation-log.md) — drain/rotation completion record

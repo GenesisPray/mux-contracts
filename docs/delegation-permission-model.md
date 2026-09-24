@@ -14,7 +14,72 @@ what a delegate may do, and — critically — when a delegation stops being val
 
 ## Delegation record
 
+The contract is `#![no_std]` and stores all state using Soroban persistent
+storage with explicit per-entry TTL management.
+
+---
+
+## 2. Roles
+
+| Role | Who | Capabilities |
+|---|---|---|
+| **Owner** | Any address that owns a delegation grant | Grant permissions to delegates; revoke grants; enumerate own delegates |
+| **Delegate** | Address granted one or more permissions by an owner | Act within the granted permission set on behalf of the owner |
+| **Caller** | Any address | Read-only queries (`get_delegate_permissions`, `is_delegate`, `get_delegates`, `check_delegate`) |
+
+> **No super-owner over delegation grants.** There is no global admin for the
+> owner/delegate permission model above. Each `(owner, delegate)` pair is
+> independent. An owner can only grant or revoke their own delegates.
+>
+> This does not extend to `link_contract_id(admin, contract_id)` or
+> `initialize(admin)`/`upgrade`, which accept a separate, unrelated `admin`
+> concept scoped to contract self-registration and WASM upgrades — never to
+> delegation grants. See [`docs/delegation-upgrade.md`](delegation-upgrade.md#admin--initialization)
+> and [`docs/access-control-checklist.md`](access-control-checklist.md#17-mux-delegation)
+> for the full breakdown.
+
+---
+
+## 3. Permission Model
+
+### 3.1 What is a permission?
+
+A permission is a `Symbol` — a compact Soroban string value of up to 9 bytes.
+Permission names are chosen by the application layer; the contract treats them
+as opaque identifiers. Common examples: `"transfer"`, `"read"`, `"swap"`,
+`"vote"`, `"trade"`.
+
+### 3.2 Grant semantics
+
+Calling `grant_delegate(owner, delegate, permissions)`:
+
+- **Replaces** any prior grant for the same `(owner, delegate)` pair — there is
+  no append mode. The new `permissions` list becomes the authoritative grant.
+- The operation is atomic: if validation fails (empty list, too many permissions,
+  too many delegates) the existing grant is left unchanged.
+- Requires `owner.require_auth()` — only the owner can grant.
+
+## Delegation record
+
 A delegation is stored as a typed record:
+
+```
+Delegation {
+    owner: Address,
+    delegate: Address,
+    scope: Scope,          // e.g. Transfer { max_amount }, Call { target }
+    expires_at: u64,       // ledger timestamp; 0 means "no expiry" is NOT allowed
+    revoked: bool,
+    nonce: u64,            // monotonic, for idempotency / replay protection
+}
+```
+
+`expires_at` is mandatory. A delegation with `expires_at == 0` is rejected at
+creation time so that "no expiry" can never be expressed by accident.
+
+## Expiry invariants
+
+These
 
 ```
 Delegation {

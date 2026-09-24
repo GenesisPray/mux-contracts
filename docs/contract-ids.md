@@ -21,10 +21,25 @@ Every deploy that produces a new contract ID **must** update both this file and 
 |---|---|---|---|---|
 | testnet | mux-account | | | |
 | testnet | mux-batcher | | | |
+| testnet | mux-delegation | | | |
 | testnet | mux-permissions | | | |
+| testnet | mux-wallet-registry | | | |
+| testnet | mux-account-factory | | | |
+| testnet | mux-registry | | | |
+| testnet | mux-policy | | | |
 | mainnet | mux-account | | | |
 | mainnet | mux-batcher | | | |
+| mainnet | mux-delegation | | | |
 | mainnet | mux-permissions | | | |
+| mainnet | mux-wallet-registry | | | |
+| mainnet | mux-account-factory | | | |
+| mainnet | mux-registry | | | |
+| mainnet | mux-policy | | | |
+
+`mux-recovery` and `mux-spending-policy` are also deployed by
+`scripts/deploy.sh` but don't yet have a `muxContractIds` key — see
+[`../CONTRACT_IDS.md`](../CONTRACT_IDS.md) for why that's tracked
+separately rather than fixed here.
 
 Fill in the table after each deployment. The `Contract ID` column holds the `C...` address returned by `stellar contract deploy`. The `WASM Hash` column holds the SHA-256 of the `.wasm` binary uploaded to the network.
 
@@ -46,9 +61,14 @@ Fill in the table after each deployment. The `Contract ID` column holds the `C..
    ```json
    {
      "testnet": {
-       "muxAccount":     "<new-contract-id>",
-       "muxBatcher":     "<new-contract-id>",
-       "muxPermissions": "<new-contract-id>"
+       "muxAccount":         "<new-contract-id>",
+       "muxBatcher":         "<new-contract-id>",
+       "muxDelegation":      "<new-contract-id>",
+       "muxPermissions":     "<new-contract-id>",
+       "muxWalletRegistry":  "<new-contract-id>",
+       "muxAccountFactory":  "<new-contract-id>",
+       "muxRegistry":        "<new-contract-id>",
+       "muxPolicy":          "<new-contract-id>"
      }
    }
    ```
@@ -86,10 +106,22 @@ Runtime overrides follow the pattern `{NETWORK}_MUX_*_ID` and take precedence ov
 SOROBAN_NETWORK=testnet
 TESTNET_MUX_ACCOUNT_ID=C...
 TESTNET_MUX_BATCHER_ID=C...
+TESTNET_MUX_DELEGATION_ID=C...
 TESTNET_MUX_PERMISSIONS_ID=C...
+TESTNET_MUX_WALLET_REGISTRY_ID=C...
+TESTNET_MUX_ACCOUNT_FACTORY_ID=C...
+TESTNET_MUX_REGISTRY_ID=C...
+TESTNET_MUX_POLICY_ID=C...
 ```
 
 See [`.env.deploy.example`](../.env.deploy.example) for the full variable reference.
+
+## How Drift Is Caught
+
+`scripts/check-contract-ids-sync.sh` (run in CI) treats the `MuxContractIds`
+interface in [`../bindings/src/types.ts`](../bindings/src/types.ts) as the
+canonical key set and fails if this file, `../CONTRACT_IDS.md`, or
+`../config/addresses.json` stop mentioning any key in that set.
 
 ---
 

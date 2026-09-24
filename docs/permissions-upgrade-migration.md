@@ -3,6 +3,19 @@
 This document covers storage-layout and admin-state considerations when
 upgrading the `mux-permissions` contract to a new WASM build.
 
+## Status
+
+`mux-permissions` **does** expose an `upgrade()` entry point — see
+`contracts/mux-permissions/src/lib.rs`. The function is admin-gated via
+`require_admin()` (the same helper used by role and multisig-rotation
+entrypoints) and returns `NotInitialized` (fail-closed) if called before
+`initialize`. This document describes the full upgrade procedure.
+
+Unit tests in the same file verify the auth gate:
+- `test_upgrade_requires_admin_auth` — calling `upgrade()` without admin auth is rejected
+- `test_upgrade_before_initialize_returns_not_initialized` — calling before `initialize`
+  returns `NotInitialized`
+
 ## General Upgrade Pattern
 
 Soroban contracts are upgraded by uploading new WASM to the ledger and calling

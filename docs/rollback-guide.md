@@ -81,12 +81,12 @@ MUX_DEPLOYER_SECRET=S... bash scripts/deploy.sh --network mainnet
 ### Option C — Admin pause (state-preserving)
 
 ```bash
-# Pause the broken contract (requires contract to implement set_active or pause)
+# Pause the broken contract (mux-account implements pause())
 stellar contract invoke \
   --id <BROKEN_CONTRACT_ID> \
   --network mainnet \
   --source <ADMIN_SECRET_KEY> \
-  -- set_active --active false
+  -- pause
 
 # Deploy the fixed version, migrate state, re-enable
 ```
@@ -133,6 +133,12 @@ Post a brief incident report after the rollback is stable:
 - Which rollback strategy was used
 - Follow-up issue link for the root-cause fix
 
+Then record the completed checklist in
+[`ops/rollback-log.md`](../ops/rollback-log.md) (see
+[rollback-deploy.md § Tracking Completion](rollback-deploy.md#tracking-completion)).
+A rollback isn't done until this entry exists — CI checks the log's format
+on every PR.
+
 ---
 
 ## Related Documents
@@ -142,3 +148,4 @@ Post a brief incident report after the rollback is stable:
 - [`deployer-key.md`](deployer-key.md) — deployer key setup
 - [`BREAKING_CHANGES.md`](BREAKING_CHANGES.md) — record of breaking changes
 - [`../scripts/deploy.sh`](../scripts/deploy.sh) — deployment script
+- [`../ops/rollback-log.md`](../ops/rollback-log.md) — completion record for the rollback checklists

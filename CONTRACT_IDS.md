@@ -10,11 +10,21 @@ This document explains the structure and lifecycle of `config/addresses.json` â€
 
 ```json
 {
-  "localnet":  { "muxAccount": "", "muxBatcher": "", "muxPermissions": "" },
-  "testnet":   { "muxAccount": "", "muxBatcher": "", "muxPermissions": "" },
-  "mainnet":   { "muxAccount": "", "muxBatcher": "", "muxPermissions": "" }
+  "localnet": {
+    "muxAccount": "", "muxBatcher": "", "muxDelegation": "",
+    "muxPermissions": "", "muxWalletRegistry": "",
+    "muxAccountFactory": "", "muxRegistry": "", "muxPolicy": ""
+  },
+  "testnet": { "...same eight keys...": "" },
+  "mainnet": { "...same eight keys...": "" }
 }
 ```
+
+This key set mirrors the `MuxContractIds` TypeScript interface in
+[`bindings/src/types.ts`](bindings/src/types.ts), which is what
+`bindings/src/addresses.ts` actually validates against. `scripts/check-contract-ids-sync.sh`
+enforces that this file, `docs/contract-ids.md`, and `config/addresses.json`
+all track that same set â€” see [`docs/contract-ids.md`](docs/contract-ids.md#how-drift-is-caught).
 
 ### Contracts
 
@@ -22,7 +32,20 @@ This document explains the structure and lifecycle of `config/addresses.json` â€
 |---|---|---|
 | `muxAccount` | `contracts/mux-account` | Account abstraction: owner management, delegates, spend limits |
 | `muxBatcher` | `contracts/mux-batcher` | Atomic multi-op batching with per-op failure handling |
+| `muxDelegation` | `contracts/mux-delegation` | Delegated permission grants, separate from account delegates |
 | `muxPermissions` | `contracts/mux-permissions` | RBAC registry â€” roles, grant/revoke |
+| `muxWalletRegistry` | `contracts/mux-wallet-registry` | Wallet discovery/registry for client lookups |
+| `muxAccountFactory` | `contracts/mux-account-factory` | Deploys and indexes `mux-account` instances per owner |
+| `muxRegistry` | `contracts/mux-registry` | Generic version/metadata registry for deployed contracts |
+| `muxPolicy` | `contracts/mux-policy` | Per-wallet daily spend policy limits |
+
+Two more contract crates are deployed by `scripts/deploy.sh` (`mux-recovery`,
+`mux-spending-policy`) but do not yet have a key in `MuxContractIds` or an
+entry in `addresses.json` â€” their deployed addresses currently have to be
+tracked out-of-band. Adding them is tracked as a follow-up; it touches
+`bindings/src/types.ts`, `addresses.ts`, `network.ts`, and
+`addresses-config.ts` together, which is out of scope for this doc/config
+sync fix.
 
 ### Networks
 
@@ -47,7 +70,12 @@ Runtime overrides follow the pattern `{NETWORK}_MUX_*_ID` and take precedence ov
 SOROBAN_NETWORK=testnet
 TESTNET_MUX_ACCOUNT_ID=C...
 TESTNET_MUX_BATCHER_ID=C...
+TESTNET_MUX_DELEGATION_ID=C...
 TESTNET_MUX_PERMISSIONS_ID=C...
+TESTNET_MUX_WALLET_REGISTRY_ID=C...
+TESTNET_MUX_ACCOUNT_FACTORY_ID=C...
+TESTNET_MUX_REGISTRY_ID=C...
+TESTNET_MUX_POLICY_ID=C...
 ```
 
 See [`.env.deploy.example`](.env.deploy.example) for the full variable reference.

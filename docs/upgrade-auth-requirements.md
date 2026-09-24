@@ -29,15 +29,17 @@ This document defines the authentication requirements for upgrading Mux Protocol
 | Contract | Has `upgrade()` | Auth pattern | Notes |
 |----------|----------------|--------------|-------|
 | `mux-account` | Not yet | N/A (immutable) | Deployment is currently immutable; upgrade path documented but entry point not exposed |
+| `mux-account-factory` | **Yes** | `DataKey::Admin` → `require_auth()` | Admin is optional — set via `initialize(admin)`; a factory never initialized has no `upgrade()` path (`NotInitialized`). Account registration itself never required an admin. |
+| `mux-account` | **No (immutable by design)** | N/A | Account is intentionally immutable — immutability is a user trust guarantee for core AA logic. No upgrade() entry point will be added. Migration means deploying a new instance; see [account-upgrade-migration.md](account-upgrade-migration.md) and [mainnet-immutable-flag-guidance.md](mainnet-immutable-flag-guidance.md). |
 | `mux-account-factory` | Not yet | N/A (immutable) | No on-chain upgrade entry point |
 | `mux-batcher` | **Yes** | `require_admin()` → `require_auth()` | Admin is optional — set via `initialize(admin)`; a batcher never initialized has no `upgrade()` path (`NotInitialized`). Batching itself never required an admin. See [batcher-upgrade.md](batcher-upgrade.md) |
 | `mux-delegation` | **Yes** | `require_admin()` → `require_auth()` | Admin is optional — set via `initialize(admin)`; independent of the caller-supplied `admin` param on `link_contract_id`. See [delegation-upgrade.md](delegation-upgrade.md) |
 | `mux-permissions` | **Yes** | `require_admin()` → `require_auth()` | Reuses the same `DataKey::Admin` / `require_admin()` used by role and multisig-rotation entrypoints. See [permissions-upgrade-migration.md](permissions-upgrade-migration.md) |
 | `mux-policy` | **Yes** | `require_admin()` → `require_auth()` | Admin is set at `initialize()` time (mandatory) |
-| `mux-recovery` | Not yet | N/A (immutable) | Recovery timelock is time-critical; upgrade path requires careful design |
-| `mux-registry` | Not yet | N/A (immutable) | See [contract-upgrade-pattern.md](contract-upgrade-pattern.md) |
-| `mux-spending-policy` | Not yet | N/A (immutable) | No on-chain upgrade entry point |
-| `mux-wallet-registry` | Not yet | N/A (immutable) | See [contract-upgrade-pattern.md](contract-upgrade-pattern.md) |
+| `mux-recovery` | **Yes** | `require_owner()` → `require_auth()` | Gated by the stored `DataKey::Owner`; `NotInitialized` if `initialize` was never called. Upgrade should not be performed while a `Pending` recovery is in flight. |
+| `mux-registry` | **Yes** | `require_admin()` → `require_auth()` | Admin is set at `initialize()` time (mandatory). Instance storage (names, versions, metadata) is preserved across upgrades. |
+| `mux-spending-policy` | **Yes** | `require_admin()` → `require_auth()` | Admin is set at `initialize()` time (mandatory). Instance storage (all policy records) is preserved across upgrades. |
+| `mux-wallet-registry` | **Yes** | `require_owner()` → `require_auth()` | Gated by the stored `DataKey::Owner`; `NotInitialized` if `initialize` was never called. Instance storage (owner, wallet entries, names list) is preserved across upgrades. |
 
 ---
 
@@ -78,6 +80,36 @@ fn require_admin(env: &Env) -> Result<(), ContractError> {
     Ok(())
 }
 ```
+
+---
+
+## Automated preflight checks
+
+The items below are enforced automatically. Run before every production upgrade:
+
+```bash
+bash scripts/check-upgrade-preflight.sh --fix-report
+```
+
+The script exits non-zero if any check fails and prints a per-check
+remediation hint when `--fix-report` is supplied.
+
+| Check | What is verified | Automated? |
+|-------|-----------------|-----------|
+| No `panic!()` on shipped paths | Every `.rs` file under `contracts/` (outside `#[cfg(test)]`) contains no bare `panic!()` | ✅ Script + Rust test |
+| No `todo!()` on shipped paths | Same files contain no `todo!()` stubs | ✅ Script + Rust test |
+| `upgrade()` auth gate | Every `pub fn upgrade` in the workspace calls `require_admin`/`require_auth` before `update_current_contract_wasm` | ✅ Script + Rust test |
+| `pause`/`unpause` auth | `pause()` and `unpause()` contain an owner-auth call | ✅ Rust test |
+| WASM hash tooling present | `scripts/verify-wasm-hash.sh` and `scripts/compute-wasm-hashes.sh` exist and are executable | ✅ Script |
+| Rollback log enforcement | `scripts/check-rollback-log.sh` exists | ✅ Script |
+| Auth requirements doc present | `docs/upgrade-auth-requirements.md` is non-empty | ✅ Script |
+| Access control checklist present | `docs/access-control-checklist.md` exists | ✅ Script |
+| Entrypoint matrix present | `docs/entrypoint-matrix.md` exists | ✅ Script |
+
+The Rust-level checks live in `tests/upgrade_preflight.rs` and run as part of
+`cargo test --workspace`. The shell script (`scripts/check-upgrade-preflight.sh`)
+additionally verifies filesystem artifacts and is intended for the CI pre-deploy
+job.
 
 ---
 

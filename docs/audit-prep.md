@@ -208,6 +208,8 @@ cargo test --workspace --all-features
 | | `test_ttl_extended_on_write` | TTL extension does not panic |
 | `mux-batcher` | `test_empty_batch_rejected` | `EmptyBatch` error |
 | | `test_batch_too_large_rejected` | `BatchTooLarge` error (51 ops) |
+| | `test_execute_batch_requires_caller_auth` | Unauthorized caller cannot dispatch operations or emit events |
+| | `test_simulate_batch_requires_caller_auth` | Unauthorized caller cannot run preflight simulation or emit events |
 | | `test_execute_batch_emits_event` | `executed` event emitted |
 | | `test_ttl_extended_on_execute_batch` | TTL extension does not panic |
 | `mux-permissions` | `test_initialize` | Happy-path init |
@@ -220,6 +222,9 @@ cargo test --workspace --all-features
 | | `test_initialize_emits_event` | `init` event emitted |
 | | `test_role_lifecycle_emits_events` | `role_crt` + `role_grt` + `role_rev` events |
 | | `test_ttl_extended_on_write` | TTL extension does not panic |
+| `mux-policy` | `test_set_daily_limit_requires_admin_auth` | Unauthorized admin mutation is rejected without state or event changes |
+| | `test_record_spend_requires_wallet_auth` | Unauthorized wallet spend is rejected without state or event changes |
+| `mux-spending-policy` | `test_set_policy_requires_admin_auth` | Unauthorized admin mutation is rejected without state or event changes |
 
 Workspace-level tests, run via `cargo test -p mux-contract-tests`:
 
@@ -238,7 +243,7 @@ TypeScript side: `bindings/__tests__/test-vectors.test.ts` loads the same two fi
 
 ### Coverage gaps (known before audit)
 
-- No negative auth tests (unauthorized caller attempting a write). All current tests use `mock_all_auths()`.
+- Unauthorized-caller coverage is enforced for the principal write paths in `mux-account`, `mux-account-factory`, `mux-batcher`, `mux-delegation`, `mux-permissions`, `mux-policy`, `mux-recovery`, `mux-registry`, `mux-spending-policy`, and `mux-wallet-registry`. These tests deliberately omit `mock_all_auths()` after setup and assert rejection plus no state/event mutation. New write paths must add the same negative test before merging.
 - No test for `debit_spend` period rollover across ledger sequences.
 
 ---

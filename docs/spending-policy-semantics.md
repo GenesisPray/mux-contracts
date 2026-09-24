@@ -6,7 +6,7 @@ This document describes the design, data model, and behavioral guarantees of the
 
 `mux-spending-policy` stores per-account spend limits per asset and validates spend requests against them. It is a lightweight enforcement contract that can be queried by other contracts (such as `mux-account`) before executing a spend operation.
 
-The contract does **not** track cumulative spend or reset counters — it enforces a simple maximum-spendable-amount check. For time-window-based limits (e.g. daily limits), see the `mux-policy` contract.
+The contract enforces a maximum-spendable-amount check per rolling period window: each `SpendLimit` record tracks the amount spent in the current window (`spent`) and the ledger at which the window expires (`reset_ledger`). `check_spend` is currently read-only and does not debit the counter — callers that persist a debit must do so themselves (see `mux-policy` for a cumulative daily-limit contract).
 
 ## Data Model
 
@@ -14,8 +14,11 @@ The contract does **not** track cumulative spend or reset counters — it enforc
 
 ```rust
 pub struct SpendLimit {
-    pub asset: Address,  // Asset identifier (the token)
-    pub limit: i128,     // Maximum amount spendable
+    pub asset: Address,      // Asset identifier (the token)
+    pub limit: i128,         // Maximum amount spendable per period window
+    pub spent: i128,         // Amount spent in the current period window
+    pub reset_ledger: u32,   // Ledger at which the window expires and `spent` resets
+    pub period_ledgers: u32, // Length of one period window in ledgers (> 0)
 }
 ```
 
@@ -29,12 +32,17 @@ Storage key: `DataKey::SpendLimit(account: Address, asset: Address)` — instanc
 - Fails with `AlreadyInitialized` if called more than once.
 - Emits `init` event.
 
-### `set_policy(account, asset, limit)` — admin only
+### `set_policy(account, asset, limit, period_ledgers)` — admin only
 
 - Creates or replaces the spend limit for `account`/`asset`.
-- `limit` must be strictly positive (> 0).
-- Fails with `InvalidInput` if `limit <= 0`.
+- `limit` must be strictly positive (> 0); fails with `InvalidInput` if `limit <= 0`.
+- `period_ledgers` sets the rolling window length and must be > 0; fails with
+  `InvalidPeriod` if `period_ledgers == 0`. The admin auth gate runs **before**
+  either validation (fail-closed: unauthenticated callers cannot probe
+  validation state).
 - Fails with `NotInitialized` if called before `initialize`.
+- Resets the `spent` counter to 0 and sets `reset_ledger` to the current ledger
+  on every call (including updates to an existing policy).
 - Emits `lmt_set` event.
 
 ### `get_policy(account, asset)`
@@ -64,6 +72,7 @@ Storage key: `DataKey::SpendLimit(account: Address, asset: Address)` — instanc
 | 4 | `PolicyNotFound` | No policy configured for account/asset pair |
 | 5 | `SpendLimitExceeded` | Spend exceeds the configured limit |
 | 6 | `InvalidInput` | Limit ≤ 0 or spend amount negative |
+| 7 | `InvalidPeriod` | `period_ledgers` is zero |
 
 ## Events
 

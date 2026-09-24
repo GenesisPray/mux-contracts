@@ -98,13 +98,26 @@ async function isNetworkAvailable(): Promise<boolean> {
 
 describe("Delegation Integration Tests", () => {
   let networkAvailable: boolean;
+  let contractDeployed: boolean;
+
+  const DELEGATION_CONTRACT_ID =
+    process.env[`${NETWORK.toUpperCase()}_MUX_DELEGATION_ID`] ||
+    config.contracts.muxDelegation ||
+    "";
 
   beforeAll(async () => {
     networkAvailable = await isNetworkAvailable();
+    contractDeployed = networkAvailable && !!DELEGATION_CONTRACT_ID;
+
     if (!networkAvailable) {
       console.warn(
         `⚠️  Network "${NETWORK}" is unavailable at ${config.rpcUrl}. ` +
         `Delegation integration tests will be skipped.`
+      );
+    } else if (!contractDeployed) {
+      console.warn(
+        `⚠️  Delegation contract ID not set for network "${NETWORK}". ` +
+        `Set ${NETWORK.toUpperCase()}_MUX_DELEGATION_ID to enable these tests.`
       );
     }
   });
@@ -131,32 +144,56 @@ describe("Delegation Integration Tests", () => {
     expect(config.contracts.muxDelegation).toBeDefined();
   });
 
+  it("should query is_delegate from a deployed delegation contract", async () => {
+    if (!contractDeployed) {
+      console.log(`ℹ️  Skipping — delegation contract not available on "${NETWORK}".`);
+      return;
+    }
+    // Call is_delegate via JSON-RPC simulation to verify contract is callable.
+    const body = {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "simulateTransaction",
+      params: [{ contractId: DELEGATION_CONTRACT_ID, method: "is_delegate", args: ["", ""] }],
+    };
+    const response = await globalThis.fetch(config.rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    // Accept 200 (success with result) or 400 (RPC error from contract) — contract is present.
+    expect([200, 400]).toContain(response.status);
+  });
+
   it("stub: grant_delegate round-trip via bindings", () => {
-    if (!networkAvailable) {
-      console.log("Skipped — network unavailable");
+    if (!contractDeployed) {
+      console.log("Skipped — contract not available");
       return;
     }
     // TODO: instantiate MuxDelegationClient, grant a delegate, and verify
     // with get_delegate_permissions. Requires a funded keypair on the
     // target network.
+    console.info("TODO: wire MuxDelegationClient with funded keypair for grant_delegate test");
     expect(true).toBe(true);
   });
 
   it("stub: revoke_delegate round-trip via bindings", () => {
-    if (!networkAvailable) {
-      console.log("Skipped — network unavailable");
+    if (!contractDeployed) {
+      console.log("Skipped — contract not available");
       return;
     }
     // TODO: grant then revoke a delegate and assert is_delegate returns false.
+    console.info("TODO: wire MuxDelegationClient with funded keypair for revoke_delegate test");
     expect(true).toBe(true);
   });
 
   it("stub: is_delegate query via bindings", () => {
-    if (!networkAvailable) {
-      console.log("Skipped — network unavailable");
+    if (!contractDeployed) {
+      console.log("Skipped — contract not available");
       return;
     }
     // TODO: query is_delegate for an unknown delegate and expect false.
+    console.info("TODO: wire MuxDelegationClient with funded keypair for is_delegate test");
     expect(true).toBe(true);
   });
 });

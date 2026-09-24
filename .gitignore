@@ -31,9 +31,15 @@ dist/
 
 # Environment
 .env
+.env.*
 .env.localnet
 .env.deploy
 deploy.env
+
+# Deployer secrets (see docs/deployer-key-requirements.md security checklist)
+*.secret
+deployment.env
+deployer.json
 
 # Build artifacts
 *.o

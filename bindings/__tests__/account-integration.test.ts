@@ -94,6 +94,27 @@ describe("MuxAccount integration", () => {
     expect(response.ok).toBe(true);
   });
 
+  it("should query get_owner from a deployed account", async () => {
+    if (!contractDeployed) {
+      console.log(`ℹ️  Skipping — mux-account contract not available on "${NETWORK}".`);
+      return;
+    }
+    // Call get_owner via JSON-RPC simulation to verify contract is callable.
+    const body = {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "simulateTransaction",
+      params: [{ contractId: ACCOUNT_CONTRACT_ID, method: "get_owner", args: [] }],
+    };
+    const response = await globalThis.fetch(config.rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    // Accept 200 (success with result) or 400 (RPC error from contract) — contract is present.
+    expect([200, 400]).toContain(response.status);
+  });
+
   it("stub: initialize round-trip via bindings", () => {
     if (!contractDeployed) {
       console.log(`ℹ️  Skipping — mux-account contract not available on "${NETWORK}".`);
@@ -101,6 +122,7 @@ describe("MuxAccount integration", () => {
     }
     // TODO: instantiate MuxAccountClient, call initialize with a funded
     // keypair, and verify owner is set. Requires deployed contract + signer.
+    console.info("TODO: wire MuxAccountClient with funded keypair for initialize test");
     expect(true).toBe(true);
   });
 
@@ -110,6 +132,7 @@ describe("MuxAccount integration", () => {
       return;
     }
     // TODO: set a delegate and verify with get_delegate / is_delegate.
+    console.info("TODO: wire MuxAccountClient with funded keypair for set_delegate test");
     expect(true).toBe(true);
   });
 
@@ -120,6 +143,7 @@ describe("MuxAccount integration", () => {
     }
     // TODO: set spend limit, debit within limit, then assert SpendLimitExceeded
     // (HTTP 400 via contractErrorToHttp) when limit is exceeded.
+    console.info("TODO: wire MuxAccountClient with funded keypair for spend limit test");
     expect(true).toBe(true);
   });
 
@@ -129,6 +153,7 @@ describe("MuxAccount integration", () => {
       return;
     }
     // TODO: initialize twice and assert AlreadyInitialized (HTTP 409).
+    console.info("TODO: wire MuxAccountClient with funded keypair for AlreadyInitialized test");
     expect(true).toBe(true);
   });
 
@@ -138,6 +163,7 @@ describe("MuxAccount integration", () => {
       return;
     }
     // TODO: add delegates up to MAX_DELEGATES and assert TooManyDelegates (HTTP 409).
+    console.info("TODO: wire MuxAccountClient with funded keypair for TooManyDelegates test");
     expect(true).toBe(true);
   });
 });

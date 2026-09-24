@@ -90,11 +90,24 @@ mod fuzz_instruction_data {
 /// mux-account: spend_limit / debit / collection-cap invariants.
 #[cfg(test)]
 mod fuzz_account {
-    use mux_account::{MuxAccount, MuxAccountClient, MuxAccountError};
-    use soroban_sdk::{testutils::Address as _, Address, Bytes, Env, Vec};
+    use mux_account::{MuxAccount, MuxAccountClient, MuxAccountError, Scope};
+    use soroban_sdk::{
+        contract, contractimpl, symbol_short, testutils::Address as _, vec, Address, Env, Val, Vec,
+    };
 
     const MAX_DELEGATES: u32 = 64;
     const MAX_SESSION_KEYS: u32 = 32;
+
+    /// Minimal dispatch target exposing the `pay` method the flood tests grant.
+    #[contract]
+    struct PayTarget;
+
+    #[contractimpl]
+    impl PayTarget {
+        pub fn pay() -> u32 {
+            1
+        }
+    }
 
     fn setup() -> (Env, MuxAccountClient<'static>, Address) {
         let env = Env::default();
@@ -104,6 +117,18 @@ mod fuzz_account {
         let owner = Address::generate(&env);
         client.initialize(&owner, &Vec::new(&env));
         (env, client, owner)
+    }
+
+    /// T-40 (docs/threat-model.md): session keys must be registered with at
+    /// least one granted scope; an empty-scope key is rejected fail-closed at
+    /// execution time, so success-path floods register a real capability.
+    fn pay_scope(env: &Env) -> Vec<Scope> {
+        vec![
+            &env,
+            Scope {
+                method: symbol_short!("pay"),
+            },
+        ]
     }
 
     /// Invariant: set_spend_limit rejects non-positive amounts and zero periods
@@ -216,13 +241,13 @@ mod fuzz_account {
         let mut keys = Vec::new(&env);
         for i in 0..MAX_SESSION_KEYS {
             let sk = Address::generate(&env);
-            client.register_session_key(&sk, &(1_000_000_u64 + i as u64), &Vec::new(&env));
+            client.register_session_key(&sk, &(1_000_000_u64 + i as u64), &pay_scope(&env));
             keys.push_back(sk);
         }
 
         // One more, past the cap, must fail closed.
         let overflow = Address::generate(&env);
-        let result = client.try_register_session_key(&overflow, &2_000_000_u64, &Vec::new(&env));
+        let result = client.try_register_session_key(&overflow, &2_000_000_u64, &pay_scope(&env));
         assert_eq!(
             result,
             Err(Ok(MuxAccountError::TooManySessionKeys)),
@@ -232,14 +257,18 @@ mod fuzz_account {
 
         // The overflowing key must never have been authorized to execute —
         // the cap rejection must not silently fall through to a usable key.
-        let overflow_exec = client.try_execute_with_session(&overflow, &Bytes::new(&env));
+        let target = env.register_contract(None, PayTarget);
+        let pay = symbol_short!("pay");
+        let args: Vec<Val> = Vec::new(&env);
+        let overflow_exec =
+            client.try_execute_with_session(&overflow, &target, &pay, &args, &client.nonce());
         assert_eq!(overflow_exec, Err(Ok(MuxAccountError::Unauthorized)));
 
         // Every key registered before the cap was hit must still authorize —
         // rejecting the flood must not have silently skipped or corrupted
         // the entries already within bounds.
         for sk in keys.iter() {
-            let exec = client.try_execute_with_session(&sk, &Bytes::new(&env));
+            let exec = client.try_execute_with_session(&sk, &target, &pay, &args, &client.nonce());
             assert!(
                 exec.is_ok(),
                 "pre-cap session key must still authorize: {exec:?}"
@@ -258,18 +287,25 @@ mod fuzz_account {
         let mut keys = Vec::new(&env);
         for i in 0..MAX_SESSION_KEYS {
             let sk = Address::generate(&env);
-            client.register_session_key(&sk, &(1_000_000_u64 + i as u64), &Vec::new(&env));
+            client.register_session_key(&sk, &(1_000_000_u64 + i as u64), &pay_scope(&env));
             keys.push_back(sk);
         }
 
         let existing = keys.get(0).unwrap();
-        let result = client.try_register_session_key(&existing, &3_000_000_u64, &Vec::new(&env));
+        let result = client.try_register_session_key(&existing, &3_000_000_u64, &pay_scope(&env));
         assert!(
             result.is_ok(),
             "updating an existing session key at the cap must succeed: {result:?}"
         );
 
-        let exec = client.try_execute_with_session(&existing, &Bytes::new(&env));
+        let target = env.register_contract(None, PayTarget);
+        let exec = client.try_execute_with_session(
+            &existing,
+            &target,
+            &symbol_short!("pay"),
+            &Vec::<Val>::new(&env),
+            &client.nonce(),
+        );
         assert!(exec.is_ok(), "updated key must still authorize: {exec:?}");
     }
 }

@@ -1,7 +1,21 @@
 # mux-account Upgrade Migration Notes
 
-This document covers what "migrating" a `mux-account` deployment actually
-means today, and the storage-layout considerations that follow from it.
+## Decision: mux-account is permanently immutable
+
+**There is no `upgrade()` entry point in `mux-account` and none will be added.**
+This is a deliberate, permanent policy decision — not a temporary gap.
+
+- [`docs/mainnet-immutable-flag-guidance.md`](mainnet-immutable-flag-guidance.md)
+  classifies `mux-account` as **immutable by design**: "core AA logic; immutability
+  is a user trust guarantee."
+- [`docs/upgrade-auth-requirements.md`](upgrade-auth-requirements.md) records the
+  per-contract upgrade status table; `mux-account` is listed as
+  **No (immutable by design)**.
+
+Do not plan around calling `upgrade()` on a live `mux-account` instance — it does
+not exist and will not be introduced. (For contracts that **do** support in-place
+upgrades — e.g. `mux-policy`, `mux-permissions` — see
+[docs/contract-upgrade-pattern.md](./contract-upgrade-pattern.md).)
 
 ## `mux-account` is immutable — there is no in-place upgrade path
 
@@ -19,7 +33,7 @@ is not expected to.
 see [docs/contract-upgrade-pattern.md](./contract-upgrade-pattern.md) for the
 general `upgrade()`/`migrate()` procedure. None of that applies here.)
 
-## What migration means instead: deploy a new instance and cut over
+## What migration means in practice: deploy a new instance and cut over
 
 Since there is no on-chain upgrade path, moving an account to new logic means
 deploying a **new** `mux-account` contract instance and cutting the owner

@@ -223,6 +223,11 @@ This section completes checklist item 6 from the audit readiness requirements:
 | T-21 | Instance storage TTL expiry causes silent data loss | `extend_ttl` on every write + keeper job |
 | T-22 | Owner floods wallet registry with distinct names | `MAX_WALLETS = 128` in `register_wallet` |
 | T-23 | Owner floods session key index for an account | `MAX_SESSION_KEYS = 32` in `require_session_key_cap` |
+| T-45 | Owner floods factory per-owner account list | `MAX_ACCOUNTS_PER_OWNER = 64` in `deploy_account*` |
+| T-46 | Admin floods delegation maps | `MAX_DELEGATES_PER_OWNER = 128`, `MAX_DELEGATE_PERMS = 64` in `grant_delegate` |
+| T-47 | Admin floods policy wallet list | `MAX_WALLETS = 256` in `set_daily_limit` |
+| T-48 | Admin floods registry contract list | `MAX_CONTRACTS = 128` in `register*` |
+| T-49 | Guardian set bloat | `MAX_GUARDIANS = 16` in `add_guardian` |
 
 ---
 

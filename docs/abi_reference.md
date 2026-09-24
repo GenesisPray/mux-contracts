@@ -190,6 +190,14 @@ pub struct SessionKeyRecord {
     pub revoked: bool,
 }
 
+/// Audit payload emitted after a successful session execution.
+pub struct SessionExecutedEvent {
+    pub session_key: Address,
+    pub target: Address,
+    pub function: Symbol,
+    pub sponsor: Option<Address>,
+}
+
 /// Registry-level metadata for this account instance.
 pub struct RegistryMeta {
     pub name: String,
@@ -217,14 +225,17 @@ pub struct RegistryMeta {
 | `remove_delegate` | `delegate: Address` | `Result<(), MuxAccountError>` | Remove a delegate; owner-only |
 | `set_spend_limit` | `asset: Address, amount: i128, period_ledgers: u32` | `Result<(), MuxAccountError>` | Set per-asset spend limit; owner-only |
 | `debit_spend` | `asset: Address, spend: i128` | `Result<(), MuxAccountError>` | Check and debit a spend against the limit; contract-only |
-| `execute` | `target: Address, function: Symbol, args: Vec<Val>, asset: Address, spend: i128` | `Result<Val, MuxAccountError>` | Owner-authorized contract call with atomic on-chain spend-limit enforcement |
+| `execute` | `target: Address, function: Symbol, args: Vec<Val>, asset: Address, spend: i128, nonce: u64` | `Result<Val, MuxAccountError>` | Owner-authorized contract call with atomic on-chain spend-limit enforcement; consumes the account nonce |
 | `owner` | — | `Result<Address, MuxAccountError>` | Return current owner |
 | `delegates` | — | `Result<Map<Address, DelegateInfo>, MuxAccountError>` | Return all active (non-expired) delegates |
 | `get_delegate` | `delegate: Address` | `Result<DelegateInfo, MuxAccountError>` | Return delegate info if currently active |
 | `guardians` | — | `Result<Vec<Address>, MuxAccountError>` | Return guardian set |
+| `nonce` | — | `Result<u64, MuxAccountError>` | Return the account's current transaction nonce — the value the next execution call must supply |
 | `register_session_key` | `session_key: Address, expires_at: u64, scopes: Vec<Scope>` | `Result<(), MuxAccountError>` | Register or replace a session key (max `MAX_SESSION_KEYS` per owner); owner-only |
-| `revoke_session_key` | `session_key: Address` | `Result<(), MuxAccountError>` | Revoke a registered session key; owner-only |
-| `execute_with_session` | `session_key: Address, payload: Bytes` | `Result<Bytes, MuxAccountError>` | Validate an authorized, non-expired, non-revoked session key (stub — does not decode or execute `payload`; always returns empty `Bytes` on success. See [`docs/aa_sequence_diagram.md`](aa_sequence_diagram.md) for the gap between this and the intended AA execution flow) |
+| `revoke_session_key` | `session_key: Address` | `Result<(), MuxAccountError>` | Revoke a registered session key and remove it from `SessionKeyIndex`; owner-only |
+| `is_session_key_valid` | `session_key: Address` | `Result<bool, MuxAccountError>` | Return `true` if the key is registered, not revoked, and not expired; `false` for a revoked, expired, or unknown key |
+| `execute_with_session` | `session_key: Address, target: Address, function: Symbol, args: Vec<Val>, nonce: u64` | `Result<Val, MuxAccountError>` | Validate an authorized, non-expired, non-revoked session key; **fail-closed scope check (T-40)** — a key with an empty `scopes` list, or one that doesn't cover `function`, is rejected with `Unauthorized`. Consumes `nonce`, then dispatches `target.function(args)` under the reentrancy guard and forwards the target's return value |
+| `execute_with_session_sponsored` | `session_key: Address, sponsor: Address, target: Address, function: Symbol, args: Vec<Val>, nonce: u64` | `Result<Val, MuxAccountError>` | Gas-abstracted variant of `execute_with_session`: `sponsor` must `require_auth()` and be on the owner's sponsor allowlist (else `SponsorNotAuthorized`), in addition to the session key's own authorization; same dispatch/scope/nonce rules otherwise |
 | `set_metadata` | `meta: RegistryMeta` | `Result<(), MuxAccountError>` | Store registry-level metadata for this account instance; owner-only |
 | `get_metadata` | — | `Option<RegistryMeta>` | Return stored registry metadata, or `None` if not set |
 
@@ -238,7 +249,9 @@ pub struct RegistryMeta {
 | `dlg_rm` | `delegate: Address` | Delegate removed |
 | `lmt_set` | `(asset: Address, amount: i128, period_ledgers: u32)` | Spend limit set |
 | `debited` | `(asset: Address, spend: i128)` | Spend debited |
-| `ses_exe` | `SessionExecutedEvent { session_key: Address, payload_len: u32 }` | Session key execution without duplicating payload data |
+| `ses_exe` | `SessionExecutedEvent { session_key: Address, target: Address, function: Symbol, sponsor: Option<Address> }` | `execute_with_session` or `execute_with_session_sponsored` succeeds; `sponsor` is `None` for the non-sponsored variant |
+| `sk_reg` | `session_key: Address` | `register_session_key` succeeds |
+| `sk_rev` | `session_key: Address` | `revoke_session_key` succeeds |
 | `meta_set` | `name: String` | `set_metadata` succeeds |
 
 ### Errors
@@ -257,6 +270,9 @@ pub struct RegistryMeta {
 | `ReentrancyDetected` | 10 | Reentrant `debit_spend` call detected |
 | `ArithmeticOverflow` | 11 | Arithmetic overflow in spend tracking |
 | `TooManySessionKeys` | 12 | Owner has reached `MAX_SESSION_KEYS` (32) |
+| `ScopeNotGranted` | 13 | Invoked method is not named in the session key's `scopes` |
+| `SponsorNotAuthorized` | 14 | Relayer is not on the account's sponsor allowlist |
+| `InvalidNonce` | 15 | Supplied nonce does not match the account's current nonce |
 
 ---
 
@@ -540,6 +556,7 @@ pub struct RecoveryRequest {
     pub executable_at: u32,
     pub expires_at: u32,
     pub status: RecoveryStatus,
+    pub approvals: Vec<Address>,
 }
 ```
 
@@ -557,19 +574,22 @@ pub struct RecoveryRequest {
 
 | Method | Args | Returns | Description |
 |---|---|---|---|
-| `initialize` | `owner: Address, guardians: Vec<Address>` | `Result<(), RecoveryError>` | Set owner and guardian set; can only be called once |
-| `initiate_recovery` | `guardian: Address, new_owner: Address` | `Result<(), RecoveryError>` | Guardian-authorized; rejects if a non-expired recovery is already pending |
+| `initialize` | `owner: Address, guardians: Vec<Address>, quorum_threshold: u32` | `Result<(), RecoveryError>` | Set owner, guardian set, and quorum threshold; can only be called once; `quorum_threshold` must be >= 1 and <= guardians.len() |
+| `initiate_recovery` | `guardian: Address, new_owner: Address` | `Result<(), RecoveryError>` | Guardian-authorized; records the initiating guardian as the first approval; rejects if a non-expired recovery is already pending |
+| `approve_recovery` | `guardian: Address` | `Result<(), RecoveryError>` | Guardian-authorized; adds approval to the pending request; rejects duplicates |
 | `cancel_recovery` | — | `Result<(), RecoveryError>` | Owner-authorized; cancels a pending request at any time |
 | `execute_recovery` | `guardian: Address` | `Result<(), RecoveryError>` | Guardian-authorized; transfers ownership once `executable_at` has passed and before `expires_at` |
 | `approve_recovery_admin` | — | `Result<(), RecoveryError>` | Owner-authorized; immediately executes a pending recovery without waiting for the timelock |
 | `add_guardian` | `guardian: Address` | `Result<(), RecoveryError>` | Owner-authorized; capped at `MAX_GUARDIANS` |
 | `remove_guardian` | `guardian: Address` | `Result<(), RecoveryError>` | Owner-authorized; rejects if it would leave zero guardians |
+| `set_quorum_threshold` | `threshold: u32` | `Result<(), RecoveryError>` | Owner-authorized; must be >= 1 and <= guardian count; emits `qrm_set` |
 | `owner` | — | `Result<Address, RecoveryError>` | Return current owner |
 | `guardians` | — | `Result<Vec<Address>, RecoveryError>` | Return the guardian set |
 | `recovery_status` | — | `RecoveryStatus` | Return the current recovery lifecycle state (`None` if no request has ever been made) |
 | `recovery_request` | — | `Option<RecoveryRequest>` | Return the full recovery request record, or `None` |
-| `set_registry` | `owner: Address, registry_id: Address` | `Result<(), RecoveryError>` | Owner-authorized; link a registry contract address for off-chain discovery |
+| `set_registry` | `owner: Address, registry_id: Address` | `Result<(), RecoveryError>` | Owner-authorized; the passed `owner` must equal the stored owner (`Unauthorized` otherwise); link a registry contract address for off-chain discovery |
 | `registry_id` | — | `Option<Address>` | Return the linked registry address, or `None` if not set |
+| `quorum_threshold` | — | `u32` | Return the current M-of-N quorum threshold |
 
 ### Events
 
@@ -577,8 +597,10 @@ pub struct RecoveryRequest {
 |---|---|---|
 | `init` | `owner: Address` | Contract initialized |
 | `rec_init` | `(guardian, new_owner, initiated_at, executable_at, expires_at)` | `initiate_recovery` succeeds |
+| `rec_appr` | `(guardian: Address, approval_count: u32)` | `approve_recovery` succeeds |
 | `rec_exec` | `(guardian: Address, new_owner: Address)` | `execute_recovery` succeeds |
 | `rec_adm` | `new_owner: Address` | `approve_recovery_admin` succeeds |
+| `qrm_set` | `threshold: u32` | `set_quorum_threshold` succeeds |
 | `rec_cncl` | `()` | `cancel_recovery` succeeds |
 | `grd_add` | `guardian: Address` | `add_guardian` succeeds |
 | `grd_rm` | `guardian: Address` | `remove_guardian` succeeds |
@@ -599,6 +621,9 @@ pub struct RecoveryRequest {
 | `GuardianNotFound` | 9 | `remove_guardian` called with an address not in the set |
 | `MinGuardiansRequired` | 10 | `remove_guardian` would leave zero guardians |
 | `RecoveryExpired` | 11 | `execute_recovery` called after `expires_at` |
+| `QuorumNotReached` | 12 | `execute_recovery` called with fewer approvals than `quorum_threshold` |
+| `DuplicateApproval` | 13 | A guardian approved the same request twice |
+| `InvalidQuorumThreshold` | 14 | `initialize`/`set_quorum_threshold` given 0 or a threshold exceeding the guardian count |
 
 ---
 

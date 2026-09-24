@@ -103,7 +103,7 @@ Use this before submitting a transaction to avoid a failed on-chain call.
 
 ### `simulate_deploy_with_metadata(owner, account_address, version, description, author) → Result<Address>`
 
-Preflight / dry-run of `deploy_account_with_metadata`. Enforces the same cap and all three metadata size limits. No state written, no events.
+Preflight / dry-run of `deploy_account_with_metadata`. Enforces the same cap and all three metadata size limits through the same validator used by the state-changing deploy path. No state written, no events.
 
 ---
 

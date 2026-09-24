@@ -9,7 +9,37 @@ It is referenced by [SECURITY.md](../SECURITY.md) and by the AA roadmap issue
 (#774). Any change to AA behavior must keep this document and the implementation
 in agreement; contradictory copy elsewhere must be removed.
 
+## Phase 2: Transaction Execution & Relay (Complete)
+- [x] Implement `execute_with_session()` transaction logic
+- [x] Add relayer sponsorship logic and gas abstraction
+- [x] Build basic frontend integration examples for session keys
+- [x] Publish documentation on integrating with the relayer network
+
+`execute_with_session(session_key, target, function, args)` now dispatches to
+`target` under the account's authorization while the reentrancy guard is held,
+and matches `function` against the session key's granted `scopes` fail-closed.
+`execute_with_session_sponsored` adds the relayer path, gated by the
+owner-managed allowlist (`set_sponsor` / `is_sponsor`). See
+[relayer-integration.md](relayer-integration.md) and
+[`examples/session-key-usage.ts`](../examples/session-key-usage.ts).
+
 ## Scope
+
+Mux provides invisible wallets and account abstraction on Stellar/Soroban. The
+AA roadmap covers:
+
+- Smart-account creation and recovery
+- Delegated signing (session keys / delegates)
+- Guardian-assisted recovery
+- Sponsored (fee-bump) transaction submission
+- Admin and policy surfaces that gate the above
+
+## Invariants
+
+These invariants are non-negotiable. A milestone does not exit until every
+invariant is enforced in code and covered by automated tests.
+
+1. **Server/contract is the source of
 
 Mux provides invisible wallets and account abstraction on Stellar/Soroban. The
 AA roadmap covers:
